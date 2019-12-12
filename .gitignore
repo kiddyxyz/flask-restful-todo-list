@@ -1,0 +1,6 @@
+.flaskenv
+virtualenv
+venv
+virtualenvironment
+.idea
+/.idea
