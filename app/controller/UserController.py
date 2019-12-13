@@ -2,9 +2,11 @@ from app.model.user import Users
 from flask import request
 from app import response, db
 from flask_restful import Resource
+from app.library import jwt
 
 
 class UsersWithoutParams(Resource):
+    @jwt.required
     def get(self):
         try:
             users = Users.query.all()
@@ -13,6 +15,7 @@ class UsersWithoutParams(Resource):
         except Exception as e:
             print(e)
 
+    @jwt.required
     def post(self):
         try:
             name = request.json['name']
@@ -24,13 +27,20 @@ class UsersWithoutParams(Resource):
             db.session.add(users)
             db.session.commit()
 
-            return response.ok('', 'Successfully create data!')
+            access_token = jwt.encode(users)
+            refresh_token = jwt.encode(users, access=False)
+
+            return response.ok({
+                'access_token': access_token,
+                'refresh_token': refresh_token
+            }, 'Successfully create data!')
 
         except Exception as e:
-            print(e)
+            return response.badRequest('', e)
 
 
 class UsersWithParams(Resource):
+    @jwt.required
     def get(self, id):
         try:
             users = Users.query.filter_by(id=id).first()
@@ -40,8 +50,9 @@ class UsersWithParams(Resource):
             data = singleTransform(users)
             return response.ok(data, "")
         except Exception as e:
-            print(e)
+            return response.badRequest('', e)
 
+    @jwt.required
     def put(self, id):
         try:
             name = request.json['name']
@@ -60,6 +71,7 @@ class UsersWithParams(Resource):
         except Exception as e:
             print(e)
 
+    @jwt.required
     def delete(self, id):
         try:
             user = Users.query.filter_by(id=id).first()
@@ -77,6 +89,13 @@ class UsersWithParams(Resource):
 class Login(Resource):
     def get(self):
         try:
+            token = jwt.decode()
+            return response.ok(token, '')
+        except Exception as e:
+            print(e)
+
+    def post(self):
+        try:
             email = request.json['email']
             password = request.json['password']
 
@@ -87,10 +106,17 @@ class Login(Resource):
             if not user.checkPassword(password):
                 return response.badRequest([], 'Your credentials is invalid')
 
-            data = singleTransform(user)
-            return response.ok(data, "")
+            data = singleTransform(user, withTodo=False)
+            access_token = jwt.encode(data)
+            refresh_token = jwt.encode(data, access=False)
+
+            return response.ok({
+                'data': data,
+                'access_token': access_token,
+                'refresh_token': refresh_token,
+            }, "")
         except Exception as e:
-            print(e)
+            return response.badRequest('', e)
 
 
 def transform(users):
